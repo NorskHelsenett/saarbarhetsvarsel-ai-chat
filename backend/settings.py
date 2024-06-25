@@ -164,6 +164,8 @@ class _AzureOpenAISettings(BaseSettings):
                 continue
 
             with open(ex_path, "r") as fd:
+                if name not in examples:
+                    examples[name] = dict()
                 examples[name][kind] = fd.read()
                 examples[name]["role"] = role
 
