@@ -195,10 +195,11 @@ def prepare_model_args(request_body, request_headers):
             }
         ]
 
-    logging.info("Multiline test:")
-    logging.info("-"*80)
-    logging.info(app_settings.azure_openai.multiline_test)
-    logging.info("-"*80)
+    with open("/tmp/multiline_test.txt", "w") as fd:
+        fd.write("Multiline test:\n")
+        fd.write("---\n")
+        fd.write(app_settings.azure_openai.multiline_test)
+        fd.write("---\n")
 
     for message in request_messages:
         if message:
