@@ -122,7 +122,8 @@ class _AzureOpenAISettings(BaseSettings):
     embedding_endpoint: Optional[str] = None
     embedding_key: Optional[str] = None
     embedding_name: Optional[str] = None
-    
+    multiline_test: str = "Testing\nNew line"
+
     @field_validator('tools', mode='before')
     @classmethod
     def deserialize_tools(cls, tools_json_str: str) -> List[_AzureOpenAITool]:

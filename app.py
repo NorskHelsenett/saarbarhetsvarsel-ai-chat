@@ -195,6 +195,11 @@ def prepare_model_args(request_body, request_headers):
             }
         ]
 
+    print("Multiline test:")
+    print("-"*80)
+    print(app_settings.azure_openai.multiline_test)
+    print("-"*80)
+
     for message in request_messages:
         if message:
             messages.append(
