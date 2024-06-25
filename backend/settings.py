@@ -16,10 +16,12 @@ from pydantic import (
 )
 from pydantic.alias_generators import to_snake
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_core.core_schema import FieldValidationInfo
 from typing import List, Literal, Optional
 from typing_extensions import Self
 from quart import Request
 from backend.utils import parse_multi_columns, generateFilterString
+from pathlib import Path
 
 DOTENV_PATH = os.environ.get(
     "DOTENV_PATH",
@@ -122,7 +124,55 @@ class _AzureOpenAISettings(BaseSettings):
     embedding_endpoint: Optional[str] = None
     embedding_key: Optional[str] = None
     embedding_name: Optional[str] = None
-    multiline_test: str = "Testing\nNew line"
+    examples_query_suffix: str = "_query"
+    examples_answer_suffix: str = "_answer"
+    # The environment varible should be the path to the data directory where
+    # the example query and answer files are stored, and the parsed variable
+    # is a list of dicts as messages to send to the chat API
+    examples: Optional[List[dict]] = None
+
+    @field_validator('examples', mode='before')
+    def load_example(cls, examples_path: str, info: FieldValidationInfo) -> List[dict] | None:
+        if not isinstance(examples_path, str):
+            return None
+
+        path = Path(examples_path)
+        if not path.exists():
+            logging.warning(f"Examples data path '{examples_path}' does not exist")
+            return None
+
+        if not path.is_dir():
+            logging.warning(f"Examples data path '{examples_path}' is not a directory")
+            return None
+
+        query_suffix = info.data['examples_query_suffix']
+        answer_suffix = info.data['examples_answer_suffix']
+        logging.debug(f"Read suffices {query_suffix=}, {answer_suffix=}")
+        
+        examples = {}
+        for ex_path in path.iterdir():
+            if ex_path.stem.endswith(query_suffix):
+                name = ex_path.stem.removesuffix(query_suffix)
+                kind = "query"
+                role = "user"
+            elif ex_path.stem.endswith(answer_suffix):
+                name = ex_path.stem.removesuffix(answer_suffix)
+                kind = "answer"
+                role = "assistant"
+            else:
+                logging.warning(f"Example file '{ex_path}' does not end with a known suffix, skipping")
+                continue
+
+            with open(ex_path, "r") as fd:
+                examples[name][kind] = fd.read()
+                examples[name]["role"] = role
+
+        logging.debug(examples)
+        with open("/tmp/examples.txt", "w") as fd:
+            fd.write(str(examples))
+
+        examples_list = []
+        return examples_list
 
     @field_validator('tools', mode='before')
     @classmethod

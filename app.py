@@ -194,6 +194,9 @@ def prepare_model_args(request_body, request_headers):
                 "content": app_settings.azure_openai.system_message
             }
         ]
+        
+        if app_settings.azure_openai.examples:
+            logging.debug(app_settings.azure_openai.examples)
 
     for message in request_messages:
         if message:
@@ -373,12 +376,6 @@ async def conversation_internal(request_body, request_headers):
 
 @bp.route("/conversation", methods=["POST"])
 async def conversation():
-    with open("/tmp/multiline_test.txt", "w") as fd:
-        fd.write("Multiline test:\n")
-        fd.write("---\n")
-        fd.write(app_settings.azure_openai.multiline_test)
-        fd.write("---\n")
-
     if not request.is_json:
         return jsonify({"error": "request must be json"}), 415
     request_json = await request.get_json()
