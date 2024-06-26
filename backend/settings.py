@@ -186,7 +186,7 @@ class _AzureOpenAISettings(BaseSettings):
                 logging.debug(
                     f"Inconsistencies when reading in examples for '{name}'. "
                     f"Expected 'query' and 'answer', but found "
-                    f"{', '.join(f'\'{str(k)}\'' for k in examples[name].keys())}."
+                    f"{', '.join('`' + str(k) + '`' for k in examples[name].keys())}."
                 )
 
         return examples_list
