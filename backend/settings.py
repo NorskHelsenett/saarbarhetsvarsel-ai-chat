@@ -147,7 +147,7 @@ class _AzureOpenAISettings(BaseSettings):
 
         query_suffix = info.data['examples_query_suffix']
         answer_suffix = info.data['examples_answer_suffix']
-        logging.debug(f"Read suffices {query_suffix=}, {answer_suffix=}")
+        logging.debug(f"Read examples suffices {query_suffix=}, {answer_suffix=}")
         
         examples = {}
         for ex_path in path.iterdir():
@@ -166,14 +166,29 @@ class _AzureOpenAISettings(BaseSettings):
             with open(ex_path, "r") as fd:
                 if name not in examples:
                     examples[name] = dict()
-                examples[name][kind] = fd.read()
-                examples[name]["role"] = role
+                if kind not in examples[name]:
+                    examples[name][kind] = dict()
 
-        logging.debug(examples)
-        with open("/tmp/examples.txt", "w") as fd:
-            fd.write(str(examples))
+                examples[name][kind]["content"] = fd.read()
+                examples[name][kind]["role"] = role
 
         examples_list = []
+        for name in examples:
+            part = []
+            for kind in ["query", "answer"]:
+                try:
+                    part.append(examples[name][kind])
+                except KeyError:
+                    pass
+            if len(part) == 2:
+                examples_list.extend(part)
+            else:
+                logging.debug(
+                    f"Inconsistencies when reading in examples for '{name}'. "
+                    f"Expected 'query' and 'answer', but found "
+                    f"{', '.join(f'\'{str(k)}\'' for k in examples[name].keys())}."
+                )
+
         return examples_list
 
     @field_validator('tools', mode='before')

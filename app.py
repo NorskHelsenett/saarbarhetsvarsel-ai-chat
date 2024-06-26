@@ -196,7 +196,8 @@ def prepare_model_args(request_body, request_headers):
         ]
         
         if app_settings.azure_openai.examples:
-            logging.debug(app_settings.azure_openai.examples)
+            messages.extend(app_settings.azure_openai.examples)
+            logging.debug(f"Added {len(app_settings.azure_openai.examples) // 2} examples")
 
     for message in request_messages:
         if message:
