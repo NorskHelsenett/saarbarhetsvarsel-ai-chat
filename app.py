@@ -184,7 +184,7 @@ def init_cosmosdb_client():
     return cosmos_conversation_client
 
 
-def prepare_model_args(request_body, request_headers):
+def prepare_model_args(request_body, request_headers, override_args={}):
     request_messages = request_body.get("messages", [])
     messages = []
     if not app_settings.datasource:
@@ -270,6 +270,7 @@ def prepare_model_args(request_body, request_headers):
 
     logging.debug(f"REQUEST BODY: {json.dumps(model_args_clean, indent=4)}")
 
+    model_args.update(override_args)
     return model_args
 
 
@@ -306,7 +307,7 @@ async def promptflow_request(request):
         logging.error(f"An error occurred while making promptflow_request: {e}")
 
 
-async def send_chat_request(request_body, request_headers):
+async def send_chat_request(request_body, request_headers, override_model_args={}):
     filtered_messages = []
     messages = request_body.get("messages", [])
     for message in messages:
@@ -314,7 +315,7 @@ async def send_chat_request(request_body, request_headers):
             filtered_messages.append(message)
             
     request_body['messages'] = filtered_messages
-    model_args = prepare_model_args(request_body, request_headers)
+    model_args = prepare_model_args(request_body, request_headers, override_args=override_model_args)
 
     try:
         azure_openai_client = init_openai_client()
@@ -339,7 +340,7 @@ async def complete_chat_request(request_body, request_headers):
             app_settings.promptflow.citations_field_name
         )
     else:
-        response, apim_request_id = await send_chat_request(request_body, request_headers)
+        response, apim_request_id = await send_chat_request(request_body, request_headers, override_model_args={"stream": False})
         history_metadata = request_body.get("history_metadata", {})
         return format_non_streaming_response(response, history_metadata, apim_request_id)
 
@@ -380,8 +381,28 @@ async def conversation():
     if not request.is_json:
         return jsonify({"error": "request must be json"}), 415
     request_json = await request.get_json()
+    print(request_json)
 
     return await conversation_internal(request_json, request.headers)
+
+
+# Custom webhook URL for chat completions for the email automation. Should
+# give the complete chat response in the json response
+@bp.route("/webhook", methods=["POST"])
+async def webhook():
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    request_json = await request.get_json()
+
+    try:
+        result = await complete_chat_request(request_json, request.headers)
+        return jsonify(result)
+    except Exception as ex:
+        logging.exception(ex)
+        if hasattr(ex, "status_code"):
+            return jsonify({"error": str(ex)}), ex.status_code
+        else:
+            return jsonify({"error": str(ex)}), 500
 
 
 @bp.route("/frontend_settings", methods=["GET"])
