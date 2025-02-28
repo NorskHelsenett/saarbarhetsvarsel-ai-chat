@@ -14,6 +14,9 @@ from quart import (
     render_template,
 )
 
+import re
+from typing import Any
+
 from openai import AsyncAzureOpenAI
 from azure.identity.aio import (
     DefaultAzureCredential,
@@ -386,6 +389,21 @@ async def conversation():
     return await conversation_internal(request_json, request.headers)
 
 
+def convert_to_slack_format(result: dict[str, str] | dict[str, Any] | dict) -> dict[str, str] | dict[str, Any] | dict:
+    text = result.get("choices", [{}])[0].get("messages", [{}])[0].get("content", "")
+    if not text:
+        return result
+
+    text = text.replace("\n\n", "\n")
+    text = re.sub(r"^-", "•", text, flags=re.MULTILINE)
+    text = re.sub(r"^  -", "  ◦", text, flags=re.MULTILINE)
+    text = re.sub(r"^    -", "    ▪", text, flags=re.MULTILINE)
+    text = re.sub(r"\*\*", "*", text, flags=re.MULTILINE)
+
+    result["choices"][0]["messages"][0]["content"] = text
+    return result
+
+
 # Custom webhook URL for chat completions for the email automation. Should
 # give the complete chat response in the json response
 @bp.route("/webhook", methods=["POST"])
@@ -396,6 +414,10 @@ async def webhook():
 
     try:
         result = await complete_chat_request(request_json, request.headers)
+
+        if request.args.get("format").lower() == "slack":
+            result = convert_to_slack_format(result)
+
         return jsonify(result)
     except Exception as ex:
         logging.exception(ex)
