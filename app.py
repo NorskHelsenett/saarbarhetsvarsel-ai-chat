@@ -402,11 +402,11 @@ def convert_to_slack_format(result: dict[str, str] | dict[str, Any] | dict) -> d
     # Replace bullet points
     text = re.sub(r"^-", "•", text, flags=re.MULTILINE)
 
-    text = re.sub(r"^  -", "  ◦", text, flags=re.MULTILINE)
-    text = re.sub(r"^\t-", "\t◦", text, flags=re.MULTILINE)
-
-    text = re.sub(r"^    -", "    ▪", text, flags=re.MULTILINE)
+    text = re.sub(r"^    ", "\t\t", text, flags=re.MULTILINE)
     text = re.sub(r"^\t\t-", "\t\t▪", text, flags=re.MULTILINE)
+
+    text = re.sub(r"^  ", "\t", text, flags=re.MULTILINE)
+    text = re.sub(r"^\t-", "\t◦", text, flags=re.MULTILINE)
 
     result["choices"][0]["messages"][0]["content"] = text
     return result
