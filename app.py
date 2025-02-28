@@ -395,10 +395,18 @@ def convert_to_slack_format(result: dict[str, str] | dict[str, Any] | dict) -> d
         return result
 
     text = text.replace("\n\n", "\n")
-    text = re.sub(r"^-", "•", text, flags=re.MULTILINE)
-    text = re.sub(r"^  -", "  ◦", text, flags=re.MULTILINE)
-    text = re.sub(r"^    -", "    ▪", text, flags=re.MULTILINE)
+    
+    # Convert bold to single asterisk
     text = re.sub(r"\*\*", "*", text, flags=re.MULTILINE)
+
+    # Replace bullet points
+    text = re.sub(r"^-", "•", text, flags=re.MULTILINE)
+
+    text = re.sub(r"^  -", "  ◦", text, flags=re.MULTILINE)
+    text = re.sub(r"^\t-", "\t◦", text, flags=re.MULTILINE)
+
+    text = re.sub(r"^    -", "    ▪", text, flags=re.MULTILINE)
+    text = re.sub(r"^\t\t-", "\t\t▪", text, flags=re.MULTILINE)
 
     result["choices"][0]["messages"][0]["content"] = text
     return result
