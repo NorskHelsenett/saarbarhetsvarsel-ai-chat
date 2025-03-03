@@ -449,10 +449,7 @@ async def webhook_product():
                 "content": app_settings.azure_openai.system_message_product
             }
         ]
-
-        if app_settings.azure_openai.examples_product:
-            model_args["messages"].extend(app_settings.azure_openai.examples_product)
-            logging.debug(f"Added {len(app_settings.azure_openai.examples_product) // 2} product examples")
+        model_args["messages"][0]["content"] += "<products>" + ", ".join(request_json.get("products", [])) + "</products>"
 
         for message in request_json.get("messages", []):
             if message:
@@ -475,7 +472,8 @@ async def webhook_product():
                 "created": response.created,
                 "object": response.object,
                 "apim-request-id": apim_request_id,
-                "products": [p.strip() for p in response.choices[0].message.content.strip().split("\n")],
+                "products": request_json.get("products", []),
+                "result": response.choices[0].message.content
             }
         else:
             result = {}
