@@ -414,7 +414,7 @@ def convert_to_slack_format(result: dict[str, str] | dict[str, Any] | dict) -> d
 
 # Custom webhook URL for chat completions for the email automation. Should
 # give the complete chat response in the json response
-@bp.route("/webhook", methods=["POST"])
+@bp.route("/webhook/summary", methods=["POST"])
 async def webhook():
     if not request.is_json:
         return jsonify({"error": "request must be json"}), 415
