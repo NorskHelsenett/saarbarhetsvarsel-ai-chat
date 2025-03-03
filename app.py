@@ -435,6 +435,60 @@ async def webhook_summary():
             return jsonify({"error": str(ex)}), 500
 
 
+@bp.route("/webhook/product", methods=["POST"])
+async def webhook_product():
+    if not request.is_json:
+        return jsonify({"error": "request must be json"}), 415
+    request_json = await request.get_json()
+
+    try:
+        model_args = prepare_model_args(request_json, request.headers, override_args={"stream": False})
+        model_args["messages"] = [
+            {
+                "role": "system",
+                "content": app_settings.azure_openai.system_message_product
+            }
+        ]
+
+        if app_settings.azure_openai.examples_product:
+            model_args["messages"].extend(app_settings.azure_openai.examples_product)
+            logging.debug(f"Added {len(app_settings.azure_openai.examples_product) // 2} product examples")
+
+        for message in request_json.get("messages", []):
+            if message:
+                model_args["messages"].append(
+                    {
+                        "role": message["role"],
+                        "content": message["content"]
+                    }
+                )
+
+        azure_openai_client = init_openai_client()
+        raw_response = await azure_openai_client.chat.completions.with_raw_response.create(**model_args)
+        response = raw_response.parse()
+        apim_request_id = raw_response.headers.get("apim-request-id")
+        
+        if len(response.choices) > 0:
+            result = {
+                "id": response.id,
+                "model": response.model,
+                "created": response.created,
+                "object": response.object,
+                "apim-request-id": apim_request_id,
+                "products": [p.strip() for p in response.choices[0].message.content.strip().split("\n")],
+            }
+        else:
+            result = {}
+
+        return jsonify(result), 200
+    except Exception as ex:
+        logging.exception(ex)
+        if hasattr(ex, "status_code"):
+            return jsonify({"error": str(ex)}), ex.status_code
+        else:
+            return jsonify({"error": str(ex)}), 500
+
+
 @bp.route("/frontend_settings", methods=["GET"])
 def get_frontend_settings():
     try:

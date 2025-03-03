@@ -120,16 +120,19 @@ class _AzureOpenAISettings(BaseSettings):
     presence_penalty: Optional[confloat(ge=-2.0, le=2.0)] = 0.0
     frequency_penalty: Optional[confloat(ge=-2.0, le=2.0)] = 0.0
     system_message: str = "You are an AI assistant that helps people find information."
+    system_message_product: str = "You are an AI assistant that helps people find information."
     preview_api_version: str = MINIMUM_SUPPORTED_AZURE_OPENAI_PREVIEW_API_VERSION
     embedding_endpoint: Optional[str] = None
     embedding_key: Optional[str] = None
     embedding_name: Optional[str] = None
     examples_query_suffix: str = "_query"
     examples_answer_suffix: str = "_answer"
+    examples_product_suffix: str = "_product"
     # The environment varible should be the path to the data directory where
     # the example query and answer files are stored, and the parsed variable
     # is a list of dicts as messages to send to the chat API
     examples: Optional[List[dict]] = None
+    examples_product: Optional[List[dict]] = None
 
     @field_validator('examples', mode='before')
     def load_example(cls, examples_path: str, info: FieldValidationInfo) -> List[dict] | None:
@@ -190,6 +193,67 @@ class _AzureOpenAISettings(BaseSettings):
                 )
 
         return examples_list
+
+    @field_validator('examples_product', mode='before')
+    def load_example_product(cls, examples_path: str, info: FieldValidationInfo) -> List[dict] | None:
+        if not isinstance(examples_path, str):
+            return None
+
+        path = Path(examples_path)
+        if not path.exists():
+            logging.warning(f"Examples product data path '{examples_path}' does not exist")
+            return None
+
+        if not path.is_dir():
+            logging.warning(f"Examples product data path '{examples_path}' is not a directory")
+            return None
+
+        query_suffix = info.data['examples_query_suffix']
+        product_suffix = info.data['examples_product_suffix']
+        logging.debug(f"Read examples suffices {query_suffix=}, {product_suffix=}")
+        
+        examples = {}
+        for ex_path in path.iterdir():
+            if ex_path.stem.endswith(query_suffix):
+                name = ex_path.stem.removesuffix(query_suffix)
+                kind = "query"
+                role = "user"
+            elif ex_path.stem.endswith(product_suffix):
+                name = ex_path.stem.removesuffix(product_suffix)
+                kind = "product"
+                role = "assistant"
+            else:
+                logging.warning(f"Example file '{ex_path}' does not end with a known suffix, skipping")
+                continue
+
+            with open(ex_path, "r") as fd:
+                if name not in examples:
+                    examples[name] = dict()
+                if kind not in examples[name]:
+                    examples[name][kind] = dict()
+
+                examples[name][kind]["content"] = fd.read()
+                examples[name][kind]["role"] = role
+
+        examples_list = []
+        for name in examples:
+            part = []
+            for kind in ["query", "product"]:
+                try:
+                    part.append(examples[name][kind])
+                except KeyError:
+                    pass
+            if len(part) == 2:
+                examples_list.extend(part)
+            else:
+                logging.debug(
+                    f"Inconsistencies when reading in examples for '{name}'. "
+                    f"Expected 'query' and 'answer', but found "
+                    f"{', '.join('`' + str(k) + '`' for k in examples[name].keys())}."
+                )
+
+        return examples_list
+
 
     @field_validator('tools', mode='before')
     @classmethod
